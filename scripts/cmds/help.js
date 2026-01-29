@@ -1,104 +1,134 @@
-const fs = require("fs-extra");
-const path = require("path");
+// --- Maps for fonts ---
+const smallCapsMap = {
+  a:'ᴀ', b:'ʙ', c:'ᴄ', d:'ᴅ', e:'ᴇ', f:'ꜰ',
+  g:'ɢ', h:'ʜ', i:'ɪ', j:'ᴊ', k:'ᴋ', l:'ʟ',
+  m:'ᴍ', n:'ɴ', o:'ᴏ', p:'ᴘ', q:'ǫ', r:'ʀ',
+  s:'ꜱ', t:'ᴛ', u:'ᴜ', v:'ᴠ', w:'ᴡ', x:'x',
+  y:'ʏ', z:'ᴢ'
+};
+
+const cmdFontMap = {
+  ...smallCapsMap,
+  '0':'⁰','1':'¹','2':'²','3':'³','4':'⁴',
+  '5':'⁵','6':'⁶','7':'⁷','8':'⁸','9':'⁹'
+};
+
+const toSmallCaps = t =>
+  t.toLowerCase().split("").map(c => smallCapsMap[c] || c).join("");
+
+const toCmdFont = t =>
+  t.toLowerCase().split("").map(c => cmdFontMap[c] || c).join("");
 
 module.exports = {
-	config: {
-		name: "help",
-		aliases: ["menu", "commands"],
-		version: "4.8",
-		author: "NeoKEX",
-		shortDescription: "Show all available commands",
-		longDescription: "Displays a clean and premium-styled categorized list of commands.",
-		category: "system",
-		guide: "{pn}help [command name]"
-	},
+  config: {
+    name: "help",
+    aliases: ["menu"],
+    version: "6.0",
+    author: "𝐒𝐈𝐅𝐀𝐓",
+    shortDescription: "Show all available commands",
+    longDescription: "Displays a categorized command list.",
+    category: "system",
+    guide: "{pn}help [command name]"
+  },
 
-	onStart: async function ({ message, args, prefix }) {
-		const allCommands = global.GoatBot.commands;
-		const categories = {};
+  onStart: async function ({ message, args, prefix }) {
+    const allCommands = global.GoatBot.commands;
+    const categories = {};
 
-		const emojiMap = {
-			ai: "➥", "ai-image": "➥", group: "➥", system: "➥",
-			fun: "➥", owner: "➥", config: "➥", economy: "➥",
-			media: "➥", "18+": "➥", tools: "➥", utility: "➥",
-			info: "➥", image: "➥", game: "➥", admin: "➥",
-			rank: "➥", boxchat: "➥", others: "➥"
-		};
+    // --- Clean category name ---
+    const cleanCategoryName = (text) => {
+      if (!text) return "OTHERS";
+      return text
+        .normalize("NFKD")
+        .replace(/[^\w\s-]/g, "")
+        .replace(/\s+/g, " ")
+        .trim()
+        .toUpperCase();
+    };
 
-		const cleanCategoryName = (text) => {
-			if (!text) return "others";
-			return text
-				.normalize("NFKD")
-				.replace(/[^\w\s-]/g, "")
-				.replace(/\s+/g, " ")
-				.trim()
-				.toLowerCase();
-		};
+    // --- Organize commands ---
+    for (const [, cmd] of allCommands) {
+      if (!cmd?.config || cmd.config.name === "help") continue;
+      const cat = cleanCategoryName(cmd.config.category);
+      if (!categories[cat]) categories[cat] = [];
+      categories[cat].push(cmd.config.name);
+    }
 
-		for (const [name, cmd] of allCommands) {
-			const cat = cleanCategoryName(cmd.config.category);
-			if (!categories[cat]) categories[cat] = [];
-			categories[cat].push(cmd.config.name);
-		}
+    // --- Single command detail ---
+    if (args[0]) {
+      const query = args[0].toLowerCase();
 
+      const cmd =
+        allCommands.get(query) ||
+        [...allCommands.values()].find(c =>
+          (c.config?.aliases || []).map(a => a.toLowerCase()).includes(query)
+        );
 
-		if (args[0]) {
-			const query = args[0].toLowerCase();
-			const cmd =
-				allCommands.get(query) ||
-				[...allCommands.values()].find((c) => (c.config.aliases || []).includes(query));
-			if (!cmd) return message.reply(`❌ Command "${query}" not found.`);
+      if (!cmd || !cmd.config) {
+        return message.reply(`❌ Command "${query}" not found.`);
+      }
 
-			const {
-				name,
-				version,
-				author,
-				guide,
-				category,
-				shortDescription,
-				longDescription,
-				aliases,
-				role 
-			} = cmd.config;
+      const {
+        name,
+        version,
+        author,
+        guide,
+        category,
+        shortDescription,
+        longDescription,
+        aliases
+      } = cmd.config;
 
-			const desc =
-				typeof longDescription === "string"
-					? longDescription
-					: longDescription?.en || shortDescription?.en || shortDescription || "No description";
+      const desc =
+        typeof longDescription === "string"
+          ? longDescription
+          : longDescription?.en ||
+            shortDescription?.en ||
+            shortDescription ||
+            "No description";
 
-			const usage =
-				typeof guide === "string"
-					? guide.replace(/{pn}/g, prefix)
-					: guide?.en?.replace(/{pn}/g, prefix) || `${prefix}${name}`;
+      const usage =
+        (typeof guide === "string"
+          ? guide
+          : guide?.en || `{pn}${name}`)
+          .replace(/{pn}/g, prefix)
+          .replace(/{name}/g, name);
 
-						const requiredRole = cmd.config.role !== undefined ? cmd.config.role : 0; 
+      // Removed attachment property
+      return message.reply(
+          `🌸 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗜𝗡𝗙𝗢 🌸\n\n` +
+          `🎀 Name: ${name}\n\n` +
+          `🎀 Category: ${category || "Uncategorized"}\n\n` +
+          `🎀 Description: ${desc}\n\n` +
+          `🎀 Aliases: ${aliases?.length ? aliases.join(", ") : "None"}\n\n` +
+          `🎀 Usage: ${usage}\n\n` +
+          `🎀 Version: ${version || "1.0"}`
+      );
+    }
 
-			return message.reply(
-				`☠️ 𝗖𝗢𝗠𝗠𝗔𝗡𝗗 𝗜𝗡𝗙𝗢 ☠️\n\n` +
-				`➥ Name: ${name}\n` +
-				`➥ Category: ${category || "Uncategorized"}\n` +
-				`➥ Description: ${desc}\n` +
-				`➥ Aliases: ${aliases?.length ? aliases.join(", ") : "None"}\n` +
-				`➥ Usage: ${usage}\n` +
-				`➥ Permission: ${requiredRole}\n` + 
-				`➥ Author: ${author}\n` +
-				`➥ Version: ${version}`
-			);
-		}
+    // --- Full help list ---
+    let msg = "┍━━━━━━━━━━━━━━━𒐬\n┋ 𓊈🍓—͟͟͞͞𝐒𝐈𝐙𝐔 𝐂𝐌𝐃𝐒~緒🍓𓊉\n┕━━━━━━━━━━━━━━━𒐬\n\n\n";
+    const sortedCategories = Object.keys(categories).sort();
 
-		const formatCommands = (cmds) =>
-			cmds.sort().map((cmd) => `× ${cmd}`);
+    for (const cat of sortedCategories) {
+      msg += `╭━━━𓊈 🍁 ${toSmallCaps(cat)} 𓊉\n`;
+      const commands = categories[cat].sort();
+      for (let i = 0; i < commands.length; i += 2) {
+        const a = toCmdFont(commands[i]);
+        const b = commands[i + 1] ? toCmdFont(commands[i + 1]) : null;
+        msg += b ? `┋⌬ ${a}   ⌬ ${b}\n` : `┋⌬ ${a}\n`;
+      }
+      msg += `┕━━━━━━━━━━━━𒐬\n\n`;
+    }
 
-		let msg = `━━━☠️ 𝗡𝗲𝗼𝗞𝗘𝗫 𝗔𝗜 ☠️━━━\n`;
-		const sortedCategories = Object.keys(categories).sort();
-		for (const cat of sortedCategories) {
-			const emoji = emojiMap[cat] || "➥";
-			msg += `\n╭──『 ${cat.toUpperCase()} 』\n`; 
-			msg += `${formatCommands(categories[cat]).join(' ')}\n`; 
-			msg += `╰────────────◊\n`;
-		}
-		msg += `\n➥ Use: ${prefix}help [command name] for details\n➥Use: ${prefix}callad to talk with bot admins '_'`;
+    msg +=
+      `┍━━━━━━━━━━━━━━━𒐬\n` +
+      ` 𓊈🎀𓊉 ᴛᴏᴛᴀʟ ᴄᴏᴍᴍᴀɴᴅꜱ: ${allCommands.size - 1}\n` +
+      ` 𓊈🔑𓊉 ᴘʀᴇꜰɪx: ${prefix}\n` +
+      ` 𓊈👑𓊉 ᴏᴡɴᴇʀ: your name\n` +
+      `┕━━━━━━━━━━━━━━━𒐬`;
 
-		return message.reply(msg);
-	}
+    // Removed attachment property
+    return message.reply(msg);
+  }
 };
