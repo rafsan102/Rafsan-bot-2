@@ -43,6 +43,21 @@ module.exports = (api, threadModel, userModel, dashBoardModel, globalModel, user
 				break;
 			case "message_reaction":
 				onReaction();
+				
+				const isAdmin = global.GoatBot.config.adminBot.includes(event.userID);
+
+               //   "🦵" react user massage to kick
+                if (event.reaction == "🦵") {
+	               if (isAdmin) {
+	            	   api.removeUserFromGroup(event.senderID, event.threadID, (err) => {
+		              	   if (err) return console.log(err);
+	            	   });
+	                }
+                }
+
+                if (event.reaction == "😠" || event.reaction == "😡" || event.reaction == "😾"|| event.reaction == "🤬") {
+	                 message.unsend(event.messageID);
+                }              	               			    				  
 				break;
 			case "typ":
 				typ();
